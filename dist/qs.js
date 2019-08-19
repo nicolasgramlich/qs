@@ -296,6 +296,7 @@ var arrayPrefixGenerators = {
         return prefix + '[]';
     },
     comma: 'comma',
+    'comma-brackets': 'comma-brackets',
     indices: function indices(prefix, key) { // eslint-disable-line func-name-matching
         return prefix + '[' + key + ']';
     },
@@ -357,11 +358,12 @@ var stringify = function stringify( // eslint-disable-line func-name-matching
     charset
 ) {
     var obj = object;
+    var objWasArray = isArray(obj);
     if (typeof filter === 'function') {
         obj = filter(prefix, obj);
     } else if (obj instanceof Date) {
         obj = serializeDate(obj);
-    } else if (generateArrayPrefix === 'comma' && isArray(obj)) {
+    } else if ((generateArrayPrefix === 'comma' || generateArrayPrefix === 'comma-brackets') && objWasArray) {
         obj = obj.join(',');
     }
 
@@ -374,11 +376,15 @@ var stringify = function stringify( // eslint-disable-line func-name-matching
     }
 
     if (isNonNullishPrimitive(obj) || utils.isBuffer(obj)) {
+        var objectPrefix = prefix;
+        if (objWasArray && generateArrayPrefix === 'comma-brackets') {
+            objectPrefix = prefix + '[]';
+        }
         if (encoder) {
-            var keyValue = encodeValuesOnly ? prefix : encoder(prefix, defaults.encoder, charset);
+            var keyValue = encodeValuesOnly ? objectPrefix : encoder(objectPrefix, defaults.encoder, charset);
             return [formatter(keyValue) + '=' + formatter(encoder(obj, defaults.encoder, charset))];
         }
-        return [formatter(prefix) + '=' + formatter(String(obj))];
+        return [formatter(objectPrefix) + '=' + formatter(String(obj))];
     }
 
     var values = [];
@@ -402,7 +408,7 @@ var stringify = function stringify( // eslint-disable-line func-name-matching
             continue;
         }
 
-        if (isArray(obj)) {
+        if (objWasArray) {
             pushToArray(values, stringify(
                 obj[key],
                 typeof generateArrayPrefix === 'function' ? generateArrayPrefix(prefix, key) : prefix,
